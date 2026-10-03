@@ -39,6 +39,12 @@ Diagramy w Mermaid — renderują się na GitHubie i w IDE (VS Code: rozszerzeni
 |---|---|
 | [Pola UI / wymagania backendu](ui/ui-fields.md) | inwentarz pól per ekran (listy, detale, enumy) pod kontrakt API |
 
+## Testowanie
+
+| Dokument | Zakres |
+|---|---|
+| [Skuteczność proxy](testing/proxy-effectiveness.md) | testy deterministyczne, A/B agent z proxy i bez, scenariusze infekcji marketplace, metryki |
+
 ## API control-plane (one-frontend → one-backend)
 
 | Dokument | Zakres |
