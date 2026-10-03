@@ -9,6 +9,8 @@ Org-wide MCP catalog (remote URL or Modus-hosted adapter). Agents attach servers
 
 Frontend calls `/api/mcp` → backend `/api/v1/mcp`.
 
+Sample OpenAPI for UI testing: [`openapi/sample-commerce.openapi.json`](https://github.com/Mr-Engineers/one-frontend/blob/main/openapi/sample-commerce.openapi.json).
+
 ---
 
 ## Endpoints
@@ -50,7 +52,7 @@ Agent attach OAuth: `POST /agents/{agentId}/mcp/{serverId}/auth` (agents contrac
 | `url` | string | Remote SSE/MCP URL or `modus://hosted/...` |
 | `health` | enum | `healthy` \| `degraded` \| `down` \| `pending` |
 | `toolCount` | int | |
-| `tools` | string[] | Declared tool names |
+| `tools` | string[] | Declared tool names (enabled only) |
 | `lastSyncAt` | datetime | |
 | `requiresAuth` | boolean | Per-agent auth needed to attach |
 | `description` | string | |
@@ -134,62 +136,212 @@ Static catalog for UI cards:
 
 Each: `{ id, label, blurb, urlPlaceholder }`.
 
+For `openapi`, blurb/placeholder should describe **upload a spec + API base URL** (not “paste openapi.json URL” as the primary path).
+
+---
+
+### OpenAPI source (primary UX)
+
+Operators upload an OpenAPI 3.x / Swagger **JSON** document. Backend maps each path+method into a proposed MCP tool. The UI then:
+
+1. Groups tools by OpenAPI tag (`group`)
+2. Shows **title** (summary) + **subtitle** (`METHOD /path`)
+3. Lets operators expand **structure** (parameters, request body, responses)
+4. Lets operators **edit AI-facing `description`** (what the model sees)
+5. Lets operators **enable/disable** tools before provision
+
+YAML upload is out of scope for MVP (JSON only).
+
+**Backend responsibilities for `source: "openapi"`:**
+
+| Requirement | Notes |
+| --- | --- |
+| Accept uploaded spec | Prefer JSON body field `specDocument` (parsed object) and/or `specText` (raw JSON string). Optional `specUrl` to fetch when no upload. |
+| Separate API base URL | `baseUrl` = where the adapter calls the customer API (from form or `servers[0].url`). Do **not** treat `baseUrl` as the OpenAPI document URL. |
+| Map operations → tools | One tool per HTTP operation under `paths`. Stable `name` from `operationId` (preferred) or `slug.method.pathSegments`. |
+| Risk classification | `GET/HEAD/OPTIONS` → `read`; `POST/PUT/PATCH` → `write`; `DELETE` or pay/refund/admin-like paths → `sensitive`. `defaultEnabled: true` only for `read`. |
+| Return structure | Enough for the UI to show titles/subtitles/params without re-parsing the spec client-side after discover. |
+| Persist AI descriptions | On create, store the **edited** description per enabled tool (not only the original OpenAPI text). Disabled tools are not exposed on the hosted MCP. |
+| Spec retention | Store the uploaded/fetched document (or content hash) for later sync/diff. |
+
+Sample fixture for manual QA: [`sample-commerce.openapi.json`](https://github.com/Mr-Engineers/one-frontend/blob/main/openapi/sample-commerce.openapi.json).
+
+---
+
 ### `POST /mcp/hosted/discover`
 
-**Body:**
+Scan a hosted source and return proposed tools. For OpenAPI, parse the uploaded/fetched document.
+
+**Body (`HostedDiscoverRequest`):**
 
 ```json
 {
   "source": "openapi",
-  "name": "ERP",
-  "baseUrl": "https://api.example.com/openapi.json",
-  "authMethod": "api_key"
+  "name": "Acme Commerce",
+  "baseUrl": "https://api.acme-internal.example/v2",
+  "authMethod": "api_key",
+  "specDocument": { "openapi": "3.0.3", "info": { "title": "..." }, "paths": {} },
+  "specText": null,
+  "specUrl": null,
+  "specFileName": "sample-commerce.openapi.json"
 }
 ```
 
-`authMethod`: `api_key` \| `oauth` \| `mtls` \| `none`.
+| Field | Required | Notes |
+| --- | --- | --- |
+| `source` | yes | `rest` \| `openapi` \| `database` \| `package` \| `template` |
+| `name` | no | Display name; used for slug hint |
+| `baseUrl` | conditional | Required for non-openapi sources. For `openapi`, required unless `specDocument`/`specText` has `servers[0].url` |
+| `authMethod` | no | `api_key` \| `oauth` \| `mtls` \| `none` |
+| `specDocument` | openapi* | Parsed OpenAPI/Swagger JSON object |
+| `specText` | openapi* | Raw JSON string (alternative to `specDocument`) |
+| `specUrl` | openapi* | Fetch remote OpenAPI JSON when no upload |
+| `specFileName` | no | Original filename for audit/UI |
 
-**Response:**
+\*For `source: "openapi"`, at least one of `specDocument`, `specText`, or `specUrl` is required.
+
+**Response (`HostedDiscoverResponse`):**
 
 ```json
 {
-  "name": "ERP",
+  "name": "Acme Commerce",
   "source": "openapi",
-  "baseUrl": "https://api.example.com/openapi.json",
-  "slug": "erp",
-  "description": "Modus-hosted adapter for openapi / swagger.",
+  "baseUrl": "https://api.acme-internal.example/v2",
+  "slug": "acme_commerce",
+  "description": "Internal purchasing API for agents.",
   "requiresAuth": false,
+  "specTitle": "Acme Commerce API",
+  "specVersion": "2.1.0",
   "tools": [
     {
-      "name": "erp.orders.list",
+      "name": "acme_commerce.searchProducts",
       "risk": "read",
-      "description": "GET /orders",
-      "defaultEnabled": true
+      "defaultEnabled": true,
+      "title": "Search products",
+      "subtitle": "GET /products",
+      "group": "Catalog",
+      "method": "GET",
+      "path": "/products",
+      "operationId": "searchProducts",
+      "description": "Full-text and filter search across the approved catalog.",
+      "originalDescription": "Full-text and filter search across the approved catalog. Prefer sku or vendor_id when known.",
+      "parameters": [
+        {
+          "name": "q",
+          "in": "query",
+          "required": false,
+          "schemaType": "string",
+          "description": "Free-text query"
+        }
+      ],
+      "requestBody": null,
+      "responses": [
+        { "status": "200", "description": "Product page" }
+      ]
+    },
+    {
+      "name": "acme_commerce.payInvoice",
+      "risk": "sensitive",
+      "defaultEnabled": false,
+      "title": "Pay invoice",
+      "subtitle": "POST /invoices/{invoice_id}/pay",
+      "group": "Invoices",
+      "method": "POST",
+      "path": "/invoices/{invoice_id}/pay",
+      "operationId": "payInvoice",
+      "description": "Initiate payment for an open invoice.",
+      "originalDescription": "Initiate payment for an open invoice. Money-moving — keep disabled unless authorized.",
+      "parameters": [
+        {
+          "name": "invoice_id",
+          "in": "path",
+          "required": true,
+          "schemaType": "string"
+        }
+      ],
+      "requestBody": {
+        "contentTypes": ["application/json"],
+        "required": true,
+        "summary": "Payment instruction"
+      },
+      "responses": [
+        { "status": "202", "description": "Payment accepted" },
+        { "status": "402", "description": "Payment failed" }
+      ]
     }
   ]
 }
 ```
 
-`risk`: `read` \| `write` \| `sensitive`.
+#### `ProposedHostedTool` fields
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `name` | string | Stable tool id exposed on the hosted MCP |
+| `risk` | enum | `read` \| `write` \| `sensitive` |
+| `description` | string | **AI-facing** text (seeded from OpenAPI; UI may edit before create) |
+| `defaultEnabled` | boolean | UI checkbox default |
+| `title` | string? | Human title (OpenAPI `summary`) |
+| `subtitle` | string? | e.g. `GET /orders/{id}` |
+| `group` | string? | OpenAPI tag / resource group |
+| `method` | string? | HTTP method |
+| `path` | string? | OpenAPI path template |
+| `operationId` | string? | From spec when present |
+| `originalDescription` | string? | Unedited OpenAPI description/summary |
+| `parameters` | array? | `{ name, in, required, schemaType?, description? }` |
+| `requestBody` | object\|null? | `{ contentTypes[], required, summary? }` |
+| `responses` | array? | `{ status, description }` (short list ok) |
+
+Non-openapi sources may omit structure fields and return a smaller tool list (name/risk/description/defaultEnabled is enough).
+
+---
 
 ### `POST /mcp/hosted`
 
-**Body:**
+Provision the hosted adapter and register it in the catalog. Only **enabled** tools become callable; store operator-edited descriptions.
+
+**Body (`HostedCreateRequest`):**
 
 ```json
 {
   "source": "openapi",
-  "name": "ERP",
-  "baseUrl": "https://api.example.com/openapi.json",
-  "slug": "erp",
+  "name": "Acme Commerce",
+  "baseUrl": "https://api.acme-internal.example/v2",
+  "slug": "acme_commerce",
   "authMethod": "api_key",
-  "credentials"?: { "apiKey": "..." },
-  "enabledTools": ["erp.orders.list", "erp.orders.get"],
-  "description": "..."
+  "credentials": { "apiKey": "..." },
+  "description": "Modus-hosted adapter from OpenAPI.",
+  "specDocument": { "openapi": "3.0.3", "paths": {} },
+  "specFileName": "sample-commerce.openapi.json",
+  "tools": [
+    {
+      "name": "acme_commerce.searchProducts",
+      "description": "Search the approved product catalog. Prefer sku when known.",
+      "enabled": true
+    },
+    {
+      "name": "acme_commerce.payInvoice",
+      "description": "Pay an open invoice.",
+      "enabled": false
+    }
+  ]
 }
 ```
 
-**Response:** `McpServer` with `kind: "hosted"`, `url: "modus://hosted/{slug}"`.
+| Field | Required | Notes |
+| --- | --- | --- |
+| `source`, `name`, `baseUrl`, `slug` | yes | |
+| `tools` | yes | Full selection from the review step |
+| `tools[].name` | yes | Must match a discovered tool |
+| `tools[].description` | yes | Final AI description to publish |
+| `tools[].enabled` | yes | `false` = not exposed on the MCP |
+| `authMethod` / `credentials` | no | Gateway auth to the customer API |
+| `specDocument` / `specText` / `specUrl` | openapi | Persist with the server for remount/sync |
+| `description` | no | Server-level blurb |
+
+**Backward-compatible alternative (not preferred):** `enabledTools: string[]` plus `toolDescriptions: { [name]: string }`. Prefer the `tools[]` array so enablement and AI text travel together.
+
+**Response:** `McpServer` with `kind: "hosted"`, `url: "modus://hosted/{slug}"`, `tools` = enabled tool names only, `toolCount` = that length.
 
 Provisioning may be async later (`202` + job id); wizard UI currently stages progress locally then registers.
 
@@ -199,18 +351,22 @@ Provisioning may be async later (`202` + job id); wizard UI currently stages pro
 
 | Status | When |
 | --- | --- |
-| `400` | Bad URL / source / empty tools |
+| `400` | Bad URL / source / empty enabled tools / invalid OpenAPI JSON / missing spec for openapi |
 | `401` / `403` | Auth |
 | `404` | Unknown server |
 | `409` | Duplicate URL/slug |
-| `502` | Discover/provision upstream failed |
+| `413` | Spec upload too large |
+| `415` | Unsupported media (e.g. YAML-only upload) |
+| `502` | Discover/provision upstream failed (fetch `specUrl`, reachability) |
 | `500` | Unexpected |
 
 ---
 
 ## Open questions for backend
 
-1. Sync/refresh tools: `POST /mcp/{id}/sync` — not in UI yet.
+1. Sync/refresh tools: `POST /mcp/{id}/sync` — re-parse stored OpenAPI, diff added/removed ops; not in UI yet.
 2. OAuth for remote discover vs register vs per-agent attach — three surfaces; confirm token storage model (org vs agent).
 3. Hosted provision async job vs sync response.
 4. Soft-delete / detach-all-agents on catalog remove.
+5. Max OpenAPI size / whether multipart upload is needed vs JSON body.
+6. Whether disabled tools are retained server-side (for later re-enable) or dropped until next sync.
