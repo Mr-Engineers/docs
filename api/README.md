@@ -13,7 +13,7 @@ Paths below are relative to the client base `/api` (backend `/api/v1`).
 | Webhooks | [webhooks.md](./webhooks.md) | `GET/POST /webhooks`, `GET/PATCH/DELETE /webhooks/{id}`, optional rotate-secret / deliveries / test | draft |
 | Specialists | [specialists.md](./specialists.md) | `GET /specialists`, `GET /specialists/{id}` | draft |
 | Roles | [roles.md](./roles.md) | `GET /roles`, `GET/PATCH /roles/{id}`, `POST …/publish`, `…/archive` | draft |
-| MCP | [mcp.md](./mcp.md) | `GET /mcp`, `GET /mcp/{id}`, remote/hosted discover + register, hosted source-options | draft |
+| MCP | [mcp.md](./mcp.md) | `GET /mcp`, `GET /mcp/{id}`, remote/hosted discover + register, OpenAPI upload → tools, hosted source-options | draft |
 | Settings | [settings.md](./settings.md) | `GET/PATCH /settings/workspace`, operators list/invite/resend/disable/enable | draft |
 | Profile | [profile.md](./profile.md) | `GET /me` | draft |
 | Simulator | [simulator.md](./simulator.md) | Proposed: scenarios + runs (UI stub; `501` until built) | draft |
