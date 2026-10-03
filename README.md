@@ -18,6 +18,12 @@ Diagramy w Mermaid — renderują się na GitHubie i w IDE (VS Code: rozszerzeni
 | [Magazyn](contracts/warehouse-api.md) | `GET /low-stock`, `POST /purchase-orders`, endpointy demo, dane scenariuszy |
 | [Marketplace](contracts/marketplace-api.md) | `GET /search`, `POST /orders`, `GET /offers/{id}` i `GET /merchants/{id}` (tylko proxy), dane scenariuszy |
 
+## UI (one-frontend)
+
+| Dokument | Zakres |
+|---|---|
+| [Pola UI / wymagania backendu](ui/ui-fields.md) | inwentarz pól per ekran (listy, detale, enumy) pod kontrakt API |
+
 Roadmapa i statusy storek: [`../STORIES.md`](../STORIES.md).
 
 ## Format ADR
