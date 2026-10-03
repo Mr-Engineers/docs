@@ -18,6 +18,15 @@ Diagramy w Mermaid — renderują się na GitHubie i w IDE (VS Code: rozszerzeni
 | [Magazyn](contracts/warehouse-api.md) | `GET /low-stock`, `POST /purchase-orders`, endpointy demo, dane scenariuszy |
 | [Marketplace](contracts/marketplace-api.md) | `GET /search`, `POST /orders`, `GET /offers/{id}` i `GET /merchants/{id}` (tylko proxy), dane scenariuszy |
 
+## Kontrakty Dispute Ops (card network)
+
+| Dokument | Zakres |
+|---|---|
+| [Network Portal](contracts/dispute-network-api.md) | MCP + REST lustro, injection w `representation_text`, schema `dispute_network` |
+| [Case Desk](contracts/dispute-case-desk-api.md) | MCP + REST lustro, refund/chargeback, schema `dispute_case_desk` |
+| [OpenAPI / Postman](contracts/dispute-ops/) | maszynyowe pliki (`*.openapi.yaml`, `*.postman_collection.json`) |
+| [Modus setup](contracts/dispute-ops/MODUS_SETUP.md) | role, rule packs, specialist — polityki tylko w Modus (nie w DB) |
+
 ## Bazy danych
 
 | Dokument | Zakres |

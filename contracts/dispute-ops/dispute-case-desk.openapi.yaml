@@ -1,0 +1,348 @@
+openapi: 3.1.0
+info:
+  title: Case Desk
+  version: 0.1.0
+  description: |
+    Bank-internal case desk MCP app (trusted mutate surface).
+
+    Primary agent surface is **MCP** at `POST /mcp`.
+    REST `/v1/*` mirrors are for Postman / human ops.
+
+    Schema: `dispute_case_desk` on Shopping-Warehouse Database.
+servers:
+  - url: http://127.0.0.1:4102
+    description: Local Case Desk MCP
+tags:
+  - name: Ops
+  - name: MCP
+  - name: Tools
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
+paths:
+  /health:
+    get:
+      tags: [Ops]
+      summary: Liveness
+      security: []
+      operationId: caseDeskHealth
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /demo/reset:
+    post:
+      tags: [Ops]
+      summary: Reset demo fixtures (network + case desk schemas)
+      operationId: caseDeskDemoReset
+      responses:
+        "200":
+          description: Seed restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoReset"
+  /openapi.json:
+    get:
+      tags: [Ops]
+      summary: OpenAPI document (JSON)
+      security: []
+      operationId: caseDeskOpenApiJson
+      responses:
+        "200":
+          description: OpenAPI 3.1 JSON
+  /postman.json:
+    get:
+      tags: [Ops]
+      summary: Postman collection (JSON)
+      security: []
+      operationId: caseDeskPostman
+      responses:
+        "200":
+          description: Postman Collection v2.1
+  /mcp:
+    post:
+      tags: [MCP]
+      summary: MCP JSON-RPC (Streamable HTTP)
+      operationId: caseDeskMcp
+      parameters:
+        - $ref: "#/components/parameters/AcceptMcp"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonRpcRequest"
+            examples:
+              case_get:
+                summary: tools/call case.get
+                value:
+                  jsonrpc: "2.0"
+                  id: 1
+                  method: tools/call
+                  params:
+                    name: case.get
+                    arguments: { case_id: case_189_unrecognized }
+              refund_post:
+                summary: tools/call refund.post
+                value:
+                  jsonrpc: "2.0"
+                  id: 2
+                  method: tools/call
+                  params:
+                    name: refund.post
+                    arguments:
+                      case_id: case_189_unrecognized
+                      amount_eur: 189
+                      kind: provisional
+              chargeback_file:
+                summary: tools/call chargeback.file
+                value:
+                  jsonrpc: "2.0"
+                  id: 3
+                  method: tools/call
+                  params:
+                    name: chargeback.file
+                    arguments:
+                      case_id: case_189_unrecognized
+                      reason_code: "10.4"
+                      evidence_note: "Cardholder unrecognized; weak merchant"
+                      network_dispute_id: disp_poisoned
+      responses:
+        "200":
+          description: SSE or JSON JSON-RPC response
+          content:
+            text/event-stream:
+              schema: { type: string }
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcResponse"
+
+  /v1/cases:
+    get:
+      tags: [Tools]
+      summary: REST mirror of case.list
+      operationId: caseList
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: txn_id
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Case list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cases:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CaseSummary"
+
+  /v1/cases/{case_id}:
+    get:
+      tags: [Tools]
+      summary: REST mirror of case.get
+      operationId: caseGet
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+      responses:
+        "200":
+          description: Case detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaseDetail"
+        "404":
+          description: Not found
+    patch:
+      tags: [Tools]
+      summary: REST mirror of case.update
+      operationId: caseUpdate
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string }
+                notes: { type: string }
+                reason_code: { type: string }
+      responses:
+        "200":
+          description: Updated case
+        "404":
+          description: Not found
+
+  /v1/refunds:
+    post:
+      tags: [Tools]
+      summary: REST mirror of refund.post (money out)
+      operationId: refundPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [case_id, amount_eur, kind]
+              properties:
+                case_id: { type: string, example: case_189_unrecognized }
+                amount_eur: { type: number, exclusiveMinimum: 0, example: 189 }
+                kind:
+                  type: string
+                  enum: [provisional, final, clawback]
+                idempotency_key: { type: string }
+      responses:
+        "201":
+          description: Refund posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefundResult"
+        "404":
+          description: Case not found
+
+  /v1/refunds/{refund_id}/adjust:
+    post:
+      tags: [Tools]
+      summary: REST mirror of refund.adjust
+      operationId: refundAdjust
+      parameters:
+        - name: refund_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [delta_eur, reason]
+              properties:
+                delta_eur: { type: number, example: -10 }
+                reason:
+                  type: string
+                  example: correction
+      responses:
+        "200":
+          description: Adjusted
+        "404":
+          description: Not found
+
+  /v1/chargebacks:
+    post:
+      tags: [Tools]
+      summary: REST mirror of chargeback.file
+      operationId: chargebackFile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [case_id, reason_code]
+              properties:
+                case_id: { type: string }
+                reason_code: { type: string, example: "10.4" }
+                evidence_note: { type: string }
+                network_dispute_id: { type: string }
+                idempotency_key: { type: string }
+      responses:
+        "201":
+          description: Chargeback intent filed
+        "404":
+          description: Case not found
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    AcceptMcp:
+      name: Accept
+      in: header
+      required: true
+      schema:
+        type: string
+        default: application/json, text/event-stream
+    CaseId:
+      name: case_id
+      in: path
+      required: true
+      schema: { type: string, example: case_189_unrecognized }
+  schemas:
+    Health:
+      type: object
+      properties:
+        ok: { type: boolean }
+        service: { type: string }
+        seed: { type: string }
+    DemoReset:
+      type: object
+      properties:
+        ok: { type: boolean }
+        seed: { type: string }
+        fixtures: { type: object, additionalProperties: true }
+    JsonRpcRequest:
+      type: object
+      required: [jsonrpc, method]
+      properties:
+        jsonrpc: { type: string, enum: ["2.0"] }
+        id: {}
+        method: { type: string }
+        params: { type: object, additionalProperties: true }
+    JsonRpcResponse:
+      type: object
+      properties:
+        jsonrpc: { type: string }
+        id: {}
+        result: {}
+        error: {}
+    CaseSummary:
+      type: object
+      properties:
+        id: { type: string }
+        txn_id: { type: string }
+        customer_id: { type: string }
+        status: { type: string }
+        fraud_score: { type: number, example: 0.55 }
+        customer_tier: { type: string }
+        reason_code_internal: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    CaseDetail:
+      allOf:
+        - $ref: "#/components/schemas/CaseSummary"
+        - type: object
+          properties:
+            internal_notes: { type: string }
+            refunds:
+              type: array
+              items: { type: object, additionalProperties: true }
+            chargeback_intents:
+              type: array
+              items: { type: object, additionalProperties: true }
+            history:
+              type: array
+              items: { type: object, additionalProperties: true }
+    RefundResult:
+      type: object
+      properties:
+        idempotent: { type: boolean }
+        refund: { type: object, additionalProperties: true }

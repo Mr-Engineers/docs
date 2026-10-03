@@ -7,6 +7,7 @@ PostgreSQL 16. Dwie fizycznie osobne bazy — audyt nie dzieli bazy ani poświad
 | `commerce` | `warehouse` | [commerce/001_warehouse.sql](commerce/001_warehouse.sql) | produkty, stany, dostępność, purchase orders, historia ruchów |
 | `commerce` | `shops` | [commerce/002_shops.sql](commerce/002_shops.sql) | 5 sklepów — jedna tabela ofert na sklep |
 | `commerce` | — | [commerce/003_seed_demo.sql](commerce/003_seed_demo.sql) | dane scenariuszy z kontraktów |
+| `commerce` (Shopping-Warehouse) | `dispute_network`, `dispute_case_desk` | [commerce/004_dispute_ops.sql](commerce/004_dispute_ops.sql) | Dispute Ops MCP apps — Network Portal + Case Desk |
 | `audit` | `audit` | [audit/001_audit.sql](audit/001_audit.sql) | decyzje proxy, łańcuch decyzyjny, approvals, statusy akcji |
 
 ```bash
