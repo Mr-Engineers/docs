@@ -149,6 +149,53 @@ Fields currently rendered in the frontend ([one-frontend](https://github.com/Mr-
 
 ---
 
+## Webhooks
+
+### List
+- `name`
+- `url`
+- `events.length` (count only in table)
+- `status` (`active` | `paused` | `failing`)
+- `lastDeliveryAt`
+
+### Detail
+- `name`
+- `description` (or falls back to `url`)
+- `status`
+- `url`
+- `secretHint`
+- `successRatePct`
+- `createdAt`
+- Subscribed events (toggleable):
+  - catalog `id` / `label` / `description`
+  - membership via `events[]`
+- Recent deliveries:
+  - `event`
+  - `attemptAt`
+  - `statusCode`
+  - `latencyMs`
+  - `status` (`delivered` | `failed` | `pending`)
+
+### Create form
+- `name`
+- `url` (`https://` required)
+- `description`
+- `events[]` (multi-select from catalog)
+
+### Event catalog (closed set)
+- `approval.escalated`
+- `decision.deny`
+- `decision.caution`
+- `mcp.health_degraded`
+- `mcp.down`
+- `rate_limit.hit`
+- `specialist.circuit_open`
+- `agent.revoked`
+
+> Note: full signing `secret` is returned once on create (API); UI does not display it yet. Dispatch worker + payload envelopes are backend-owned (see [api/webhooks.md](../api/webhooks.md)).
+
+---
+
 ## Rules
 
 ### Pack list
@@ -389,3 +436,6 @@ Stub — no data fields rendered.
 | Operator role | `owner`, `admin`, `operator`, `viewer` |
 | Operator status | `active`, `invited`, `disabled` |
 | Decision chain stage | `rbac`, `rules`, `specialist`, `human` |
+| Webhook status | `active`, `paused`, `failing` |
+| Webhook delivery | `delivered`, `failed`, `pending` |
+| Webhook event | `approval.escalated`, `decision.deny`, `decision.caution`, `mcp.health_degraded`, `mcp.down`, `rate_limit.hit`, `specialist.circuit_open`, `agent.revoked` |
