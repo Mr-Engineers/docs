@@ -18,6 +18,12 @@ Diagramy w Mermaid — renderują się na GitHubie i w IDE (VS Code: rozszerzeni
 | [Magazyn](contracts/warehouse-api.md) | `GET /low-stock`, `POST /purchase-orders`, endpointy demo, dane scenariuszy |
 | [Marketplace](contracts/marketplace-api.md) | `GET /search`, `POST /orders`, `GET /offers/{id}` i `GET /merchants/{id}` (tylko proxy), dane scenariuszy |
 
+## Bazy danych
+
+| Dokument | Zakres |
+|---|---|
+| [Schematy baz](db/README.md) | `commerce` (`warehouse` + `shops`) i osobna baza `audit` — DDL PostgreSQL, dane demo |
+
 ## UI (one-frontend)
 
 | Dokument | Zakres |
