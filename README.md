@@ -30,6 +30,12 @@ Diagramy w Mermaid — renderują się na GitHubie i w IDE (VS Code: rozszerzeni
 |---|---|
 | [Pola UI / wymagania backendu](ui/ui-fields.md) | inwentarz pól per ekran (listy, detale, enumy) pod kontrakt API |
 
+## API control-plane (one-frontend → one-backend)
+
+| Dokument | Zakres |
+|---|---|
+| [Kontrakty API per strona](api/README.md) | Overview, Agents (rules/quotas per agent), Approvals, Audit, MCP, Roles, Specialists, Settings, Profile, Simulator — endpointy, filtry, formularze, przykłady |
+
 Roadmapa i statusy storek: [`../STORIES.md`](../STORIES.md).
 
 ## Format ADR
