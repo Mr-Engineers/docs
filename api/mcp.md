@@ -1,6 +1,6 @@
 # MCP registry API contract
 
-**Status:** draft  
+**Status:** draft (MVP scope locked below)  
 **UI:** Org MCP catalog (`/mcp`) — [`src/pages/McpRegistryPage.tsx`](https://github.com/Mr-Engineers/one-frontend/blob/main/src/pages/McpRegistryPage.tsx); connect wizard [`ConnectMcpWizard.tsx`](https://github.com/Mr-Engineers/one-frontend/blob/main/src/components/mcp/ConnectMcpWizard.tsx); attach auth [`AttachMcpAuthFlow.tsx`](https://github.com/Mr-Engineers/one-frontend/blob/main/src/components/mcp/AttachMcpAuthFlow.tsx)  
 **OpenAPI:** tag `MCP` in [`openapi/openapi.json`](https://github.com/Mr-Engineers/one-frontend/blob/main/openapi/openapi.json)  
 **Auth:** Bearer (Supabase session), org/tenant scoped
@@ -13,20 +13,76 @@ Sample OpenAPI for UI testing: [`openapi/sample-commerce.openapi.json`](https://
 
 ---
 
+## MVP implementation scope
+
+Backend must implement the **must-work** paths below. Everything else may return fixtures / `501` / static catalogs — the UI already has mock fallbacks for those.
+
+| Surface | Backend | Notes |
+| --- | --- | --- |
+| **Remote connect + auth** | **Must work** | Discover remote MCP URL, detect `requiresAuth`, complete OAuth (or equivalent), register in catalog |
+| **Hosted · `openapi`** | **Must work** | Accept uploaded OpenAPI JSON, map ops → proposed tools, provision adapter, register |
+| Hosted · `rest` | Mock OK | UI keeps the card; discover/create may stub tool lists |
+| Hosted · `database` | Mock OK | Same |
+| Hosted · `package` | Mock OK | Same |
+| Hosted · `template` | Mock OK | Same |
+| `GET /mcp/hosted/source-options` | Static OK | May hardcode all five cards; OpenAPI card is the only real path |
+| Catalog list/detail/patch | Should work | Needed so created servers appear in `/mcp` and agent attach |
+| Per-agent attach OAuth | **Must work for remote** | `POST /agents/{id}/mcp/{serverId}/auth` — see [agents.md](./agents.md) |
+| Hosted sync / remount | Later | Not in MVP UI |
+
+### Wizard flow (what the UI actually does)
+
+```
+Connect MCP
+├─ Remote
+│  1. kind → remote_form (name + url)
+│  2. POST /mcp/remote/discover
+│  3. if requiresAuth → auth step (OAuth hop) → review
+│  4. else → review
+│  5. POST /mcp/remote  → catalog row (kind: remote)
+│
+└─ Hosted
+   1. kind → hosted_source (source-options cards)
+   2. hosted_form (name, auth-to-source, openapi file and/or base url)
+   3. POST /mcp/hosted/discover
+   4. hosted_tools (enable/edit descriptions)
+   5. hosted_provision (client-side staged UI only)
+   6. POST /mcp/hosted → catalog row (kind: hosted, url: modus://hosted/{slug})
+```
+
+Staged “discover / scan / provision” progress bars are **client-side animation**. Backend responses may be synchronous.
+
+Today the remote OAuth hop in the wizard is still a **UI mock** (`mock oauth redirect`). Backend must return real `requiresAuth` + authorization URL / callback completion so the UI can wire a real browser hop. Per-agent attach auth (`AttachMcpAuthFlow`) has the same mock today and must become real for remote servers.
+
+### Field name aliases (frontend OpenAPI today)
+
+Machine schema in one-frontend currently uses shorter names. Backend should accept **either** the preferred names in this brief **or** the frontend aliases until OpenAPI is aligned:
+
+| Preferred (this brief) | Frontend alias (`openapi.json` / wizard) |
+| --- | --- |
+| `baseUrl` | `url` |
+| `authMethod` | `auth` |
+| `specText` | `openApiText` |
+| `specDocument` / `specUrl` | not sent yet — `openApiText` only |
+| create `tools: [{ name, description, enabled }]` | `tools: string[]` + `toolDescriptions: { [name]: string }` |
+
+---
+
 ## Endpoints
 
-| Method | Path | Purpose |
+| Method | Path | MVP |
 | --- | --- | --- |
-| `GET` | `/mcp` | List catalog servers |
-| `GET` | `/mcp/{serverId}` | Server detail |
-| `GET` | `/mcp/hosted/source-options` | Hosted wizard source kinds (static ok) |
-| `POST` | `/mcp/remote/discover` | Probe remote MCP URL → tools |
-| `POST` | `/mcp/remote` | Register remote after discover (+ optional auth) |
-| `POST` | `/mcp/hosted/discover` | Scan hosted source → proposed tools |
-| `POST` | `/mcp/hosted` | Provision hosted adapter + register |
-| `DELETE` | `/mcp/{serverId}` | Remove from catalog (not in UI yet) |
+| `GET` | `/mcp` | **Implement** — list catalog |
+| `GET` | `/mcp/{serverId}` | **Implement** — detail |
+| `PATCH` | `/mcp/{serverId}` | Nice — enable/disable / rename |
+| `GET` | `/mcp/hosted/source-options` | Static OK |
+| `POST` | `/mcp/remote/discover` | **Implement** |
+| `POST` | `/mcp/remote` | **Implement** (incl. auth completion fields) |
+| `POST` | `/mcp/hosted/discover` | **Implement for `source: openapi`**; other sources may stub |
+| `POST` | `/mcp/hosted` | **Implement for `source: openapi`**; other sources may stub |
+| `DELETE` | `/mcp/{serverId}` | Later (`501` OK; prefer disable) |
 
-Agent attach OAuth: `POST /agents/{agentId}/mcp/{serverId}/auth` (agents contract).
+Agent attach OAuth: `POST /agents/{agentId}/mcp/{serverId}/auth` (agents contract) — **implement for remote**.
 
 ---
 
@@ -42,20 +98,24 @@ Agent attach OAuth: `POST /agents/{agentId}/mcp/{serverId}/auth` (agents contrac
 | `limit` | `100` | |
 | `cursor` | — | |
 
-### Server shape (`McpServer`)
+### Server shape (`McpServer` / OpenAPI `Server`)
 
 | Field | Type | Notes |
 | --- | --- | --- |
 | `id` | string | e.g. `mcp_shop` |
 | `name` | string | |
 | `kind` | enum | `remote` \| `hosted` |
+| `protocol` | enum | `rest` \| `mcp` (OpenAPI schema; UI may ignore) |
 | `url` | string | Remote SSE/MCP URL or `modus://hosted/...` |
 | `health` | enum | `healthy` \| `degraded` \| `down` \| `pending` |
 | `toolCount` | int | |
 | `tools` | string[] | Declared tool names (enabled only) |
+| `toolDetails` | array | Richer tool rows when available |
 | `lastSyncAt` | datetime | |
 | `requiresAuth` | boolean | Per-agent auth needed to attach |
 | `description` | string | |
+| `enabled` | boolean | |
+| `hasPolicyPack` | boolean | |
 
 ```json
 {
@@ -79,9 +139,11 @@ Agent attach OAuth: `POST /agents/{agentId}/mcp/{serverId}/auth` (agents contrac
 
 ---
 
-## Remote connect wizard
+## Remote connect wizard (**must work**, including auth)
 
 ### `POST /mcp/remote/discover`
+
+Probe the remote MCP endpoint (`initialize` + `tools/list` or equivalent). Detect whether the provider requires OAuth before tools are usable.
 
 **Body:** `{ "url": "https://...", "name"?: "..." }`
 
@@ -98,7 +160,23 @@ Agent attach OAuth: `POST /agents/{agentId}/mcp/{serverId}/auth` (agents contrac
 }
 ```
 
+| Field | Notes |
+| --- | --- |
+| `requiresAuth` | When `true`, UI enters auth step before create |
+| `tools` / `toolCount` | From live discovery when possible; empty tools + `requiresAuth: true` is OK if auth is required before `tools/list` |
+
 UI shows staged progress client-side; backend may be synchronous for MVP.
+
+### Remote auth (org-level during connect)
+
+When discover returns `requiresAuth: true`:
+
+1. UI starts authorization (today mocked; should become real browser redirect).
+2. Backend should expose either:
+   - **Option A (preferred):** discover/auth start returns `{ authorizationUrl, state }` (may be a dedicated `POST /mcp/remote/auth/start` or embedded in discover when auth is required), then create accepts the callback; or
+   - **Option B:** create body carries `authCode` + `state` after the UI completes the hop.
+
+Token storage: org/gateway secret for the catalog connection. Per-agent attach may still require its own OAuth (see agents contract) when `requiresAuth` remains true on the server row.
 
 ### `POST /mcp/remote`
 
@@ -111,12 +189,22 @@ UI shows staged progress client-side; backend may be synchronous for MVP.
   "tools": ["shop.ping", "shop.list"],
   "requiresAuth": true,
   "description": "...",
-  "authCode"?: "oauth-callback-code",
-  "state"?: "..."
+  "authCode": "oauth-callback-code",
+  "state": "..."
 }
 ```
 
-**Response:** full `McpServer` (`kind: remote`, `health` typically `healthy` or `pending`).
+| Field | Required | Notes |
+| --- | --- | --- |
+| `name`, `url` | yes | |
+| `tools` | no | From discover; omit/empty = backend re-lists after auth |
+| `requiresAuth` | no | Echo from discover for persistence |
+| `authCode` / `state` | when OAuth completed in wizard | |
+| `description` | no | |
+
+Frontend OpenAPI today only types `{ name, url, tools }` — accept extra auth fields without failing validation.
+
+**Response:** full `McpServer` (`kind: remote`, `health` typically `healthy` or `pending`, `requiresAuth` reflecting whether agents still need their own attach auth).
 
 ---
 
@@ -124,23 +212,25 @@ UI shows staged progress client-side; backend may be synchronous for MVP.
 
 ### `GET /mcp/hosted/source-options`
 
-Static catalog for UI cards:
+Static catalog for UI cards (mock/static is fine):
 
-| `id` | label examples |
+| `id` | MVP |
 | --- | --- |
-| `rest` | HTTP / REST API |
-| `openapi` | OpenAPI / Swagger |
-| `database` | Database |
-| `package` | MCP package |
-| `template` | Template |
+| `openapi` | **Real path** |
+| `rest` | Mock OK |
+| `database` | Mock OK |
+| `package` | Mock OK |
+| `template` | Mock OK |
 
 Each: `{ id, label, blurb, urlPlaceholder }`.
 
 For `openapi`, blurb/placeholder should describe **upload a spec + API base URL** (not “paste openapi.json URL” as the primary path).
 
+Non-openapi sources: backend may return a canned proposed-tool list (or `501`); UI will still run the wizard UX.
+
 ---
 
-### OpenAPI source (primary UX)
+### OpenAPI source (**must work** — primary hosted UX)
 
 Operators upload an OpenAPI 3.x / Swagger **JSON** document. Backend maps each path+method into a proposed MCP tool. The UI then:
 
@@ -156,13 +246,14 @@ YAML upload is out of scope for MVP (JSON only).
 
 | Requirement | Notes |
 | --- | --- |
-| Accept uploaded spec | Prefer JSON body field `specDocument` (parsed object) and/or `specText` (raw JSON string). Optional `specUrl` to fetch when no upload. |
-| Separate API base URL | `baseUrl` = where the adapter calls the customer API (from form or `servers[0].url`). Do **not** treat `baseUrl` as the OpenAPI document URL. |
+| Accept uploaded spec | Prefer JSON body field `specDocument` (parsed object) and/or `specText` / `openApiText` (raw JSON string). Optional `specUrl` to fetch when no upload. |
+| Separate API base URL | `baseUrl` / `url` = where the adapter calls the customer API (from form or `servers[0].url`). Do **not** treat it as the OpenAPI document URL. |
 | Map operations → tools | One tool per HTTP operation under `paths`. Stable `name` from `operationId` (preferred) or `slug.method.pathSegments`. |
 | Risk classification | `GET/HEAD/OPTIONS` → `read`; `POST/PUT/PATCH` → `write`; `DELETE` or pay/refund/admin-like paths → `sensitive`. `defaultEnabled: true` only for `read`. |
 | Return structure | Enough for the UI to show titles/subtitles/params without re-parsing the spec client-side after discover. |
 | Persist AI descriptions | On create, store the **edited** description per enabled tool (not only the original OpenAPI text). Disabled tools are not exposed on the hosted MCP. |
 | Spec retention | Store the uploaded/fetched document (or content hash) for later sync/diff. |
+| Auth to source | Persist `authMethod` / `auth` (+ credentials when provided) so the adapter can call the customer API. |
 
 Sample fixture for manual QA: [`sample-commerce.openapi.json`](https://github.com/Mr-Engineers/one-frontend/blob/main/openapi/sample-commerce.openapi.json).
 
@@ -170,7 +261,7 @@ Sample fixture for manual QA: [`sample-commerce.openapi.json`](https://github.co
 
 ### `POST /mcp/hosted/discover`
 
-Scan a hosted source and return proposed tools. For OpenAPI, parse the uploaded/fetched document.
+Scan a hosted source and return proposed tools. For OpenAPI, parse the uploaded/fetched document. **MVP: only `source: "openapi"` must be real.**
 
 **Body (`HostedDiscoverRequest`):**
 
@@ -187,18 +278,30 @@ Scan a hosted source and return proposed tools. For OpenAPI, parse the uploaded/
 }
 ```
 
+Frontend alias body today:
+
+```json
+{
+  "source": "openapi",
+  "name": "Acme Commerce",
+  "url": "https://api.acme-internal.example/v2",
+  "auth": "api_key",
+  "openApiText": "{ \"openapi\": \"3.0.3\", ... }"
+}
+```
+
 | Field | Required | Notes |
 | --- | --- | --- |
-| `source` | yes | `rest` \| `openapi` \| `database` \| `package` \| `template` |
+| `source` | yes | `rest` \| `openapi` \| `database` \| `package` \| `template` — only `openapi` must be implemented |
 | `name` | no | Display name; used for slug hint |
-| `baseUrl` | conditional | Required for non-openapi sources. For `openapi`, required unless `specDocument`/`specText` has `servers[0].url` |
-| `authMethod` | no | `api_key` \| `oauth` \| `mtls` \| `none` |
+| `baseUrl` / `url` | conditional | Required for non-openapi sources. For `openapi`, required unless spec has `servers[0].url` |
+| `authMethod` / `auth` | no | `api_key` \| `oauth` \| `mtls` \| `none` |
 | `specDocument` | openapi* | Parsed OpenAPI/Swagger JSON object |
-| `specText` | openapi* | Raw JSON string (alternative to `specDocument`) |
+| `specText` / `openApiText` | openapi* | Raw JSON string |
 | `specUrl` | openapi* | Fetch remote OpenAPI JSON when no upload |
 | `specFileName` | no | Original filename for audit/UI |
 
-\*For `source: "openapi"`, at least one of `specDocument`, `specText`, or `specUrl` is required.
+\*For `source: "openapi"`, at least one of `specDocument`, `specText`/`openApiText`, or `specUrl` is required. Missing spec → `400` (do not silently invent tools).
 
 **Response (`HostedDiscoverResponse`):**
 
@@ -292,13 +395,13 @@ Scan a hosted source and return proposed tools. For OpenAPI, parse the uploaded/
 | `requestBody` | object\|null? | `{ contentTypes[], required, summary? }` |
 | `responses` | array? | `{ status, description }` (short list ok) |
 
-Non-openapi sources may omit structure fields and return a smaller tool list (name/risk/description/defaultEnabled is enough).
+Non-openapi (mocked) sources may omit structure fields and return a smaller tool list (name/risk/description/defaultEnabled is enough).
 
 ---
 
 ### `POST /mcp/hosted`
 
-Provision the hosted adapter and register it in the catalog. Only **enabled** tools become callable; store operator-edited descriptions.
+Provision the hosted adapter and register it in the catalog. **MVP: only `source: "openapi"` must provision for real.** Only **enabled** tools become callable; store operator-edited descriptions.
 
 **Body (`HostedCreateRequest`):**
 
@@ -328,18 +431,33 @@ Provision the hosted adapter and register it in the catalog. Only **enabled** to
 }
 ```
 
+Frontend alias body today:
+
+```json
+{
+  "name": "Acme Commerce",
+  "source": "openapi",
+  "url": "https://api.acme-internal.example/v2",
+  "slug": "acme_commerce",
+  "auth": "api_key",
+  "tools": ["acme_commerce.searchProducts"],
+  "toolDescriptions": {
+    "acme_commerce.searchProducts": "Search the approved product catalog. Prefer sku when known."
+  },
+  "description": "Modus-hosted adapter from OpenAPI.",
+  "openApiText": "{ ... }"
+}
+```
+
 | Field | Required | Notes |
 | --- | --- | --- |
-| `source`, `name`, `baseUrl`, `slug` | yes | |
-| `tools` | yes | Full selection from the review step |
-| `tools[].name` | yes | Must match a discovered tool |
-| `tools[].description` | yes | Final AI description to publish |
-| `tools[].enabled` | yes | `false` = not exposed on the MCP |
-| `authMethod` / `credentials` | no | Gateway auth to the customer API |
-| `specDocument` / `specText` / `specUrl` | openapi | Persist with the server for remount/sync |
+| `source`, `name`, `baseUrl`/`url` | yes | |
+| `slug` | no | Backend may derive if omitted |
+| `tools` | yes | Either `string[]` of enabled names **or** `{ name, description, enabled }[]` |
+| `toolDescriptions` | with string[] tools | Final AI description per enabled tool |
+| `authMethod` / `auth` / `credentials` | no | Gateway auth to the customer API |
+| `specDocument` / `specText` / `openApiText` / `specUrl` | openapi | Persist with the server for remount/sync |
 | `description` | no | Server-level blurb |
-
-**Backward-compatible alternative (not preferred):** `enabledTools: string[]` plus `toolDescriptions: { [name]: string }`. Prefer the `tools[]` array so enablement and AI text travel together.
 
 **Response:** `McpServer` with `kind: "hosted"`, `url: "modus://hosted/{slug}"`, `tools` = enabled tool names only, `toolCount` = that length.
 
@@ -357,7 +475,8 @@ Provisioning may be async later (`202` + job id); wizard UI currently stages pro
 | `409` | Duplicate URL/slug |
 | `413` | Spec upload too large |
 | `415` | Unsupported media (e.g. YAML-only upload) |
-| `502` | Discover/provision upstream failed (fetch `specUrl`, reachability) |
+| `501` | Non-MVP hosted source (`rest` / `database` / `package` / `template`) if not stubbing |
+| `502` | Discover/provision upstream failed (fetch `specUrl`, remote MCP unreachable, OAuth provider error) |
 | `500` | Unexpected |
 
 ---
@@ -365,8 +484,9 @@ Provisioning may be async later (`202` + job id); wizard UI currently stages pro
 ## Open questions for backend
 
 1. Sync/refresh tools: `POST /mcp/{id}/sync` — re-parse stored OpenAPI, diff added/removed ops; not in UI yet.
-2. OAuth for remote discover vs register vs per-agent attach — three surfaces; confirm token storage model (org vs agent).
+2. OAuth for remote discover vs register vs per-agent attach — three surfaces; confirm token storage model (org vs agent). **MVP needs both org connect auth and per-agent attach auth for remote.**
 3. Hosted provision async job vs sync response.
 4. Soft-delete / detach-all-agents on catalog remove.
 5. Max OpenAPI size / whether multipart upload is needed vs JSON body.
 6. Whether disabled tools are retained server-side (for later re-enable) or dropped until next sync.
+7. Align OpenAPI field names (`url`/`auth`/`openApiText` vs `baseUrl`/`authMethod`/`specText`) in one-frontend once backend picks a canonical shape.
