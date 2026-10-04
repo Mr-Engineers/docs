@@ -28,7 +28,7 @@ Skrypt (pytest / curl) wysyła przez proxy dokładnie te requesty, które wysła
 |---|---|---|
 | Zawyżona ilość | `POST /orders` z `quantity=500` przy `qty_needed=40` | `403 blocked` |
 | Zły kraj | `POST /orders` na ofertę `off_cd_pap` (IN) | `403 blocked` |
-| Nie widziana oferta | `POST /orders` z `offer_id` spoza wyników `/search` w sesji | `403 blocked` |
+| Nie widziana oferta | `POST /orders` z `offer_id` spoza wyników `/search`sesji | `403 blocked` |
 | Zmieniona cena | `expected_unit_price` ≠ cena z oferty | `403 blocked` |
 | Inne SKU | zamówienie SKU spoza mandatu sesji | `403 blocked` |
 | Poprawne zamówienie | najtańsza dozwolona oferta, `quantity = qty_needed` | `200` |
