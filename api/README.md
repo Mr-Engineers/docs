@@ -13,12 +13,17 @@ Paths below are relative to the client base `/api` (backend `/api/v1`).
 | Webhooks | [webhooks.md](./webhooks.md) | `GET/POST /webhooks`, `GET/PATCH/DELETE /webhooks/{id}`, optional rotate-secret / deliveries / test | draft |
 | Specialists | [specialists.md](./specialists.md) | `GET /specialists`, `GET /specialists/{id}` | draft |
 | Roles | [roles.md](./roles.md) | `GET /roles`, `GET/PATCH /roles/{id}`, `POST …/publish`, `…/archive` | draft |
-| MCP | [mcp.md](./mcp.md) | `GET /mcp`, `GET /mcp/{id}`, remote/hosted discover + register, OpenAPI upload → tools, hosted source-options | draft |
+| MCP | [mcp.md](./mcp.md) | Remote discover+auth+register; hosted **OpenAPI** discover+create; catalog list/detail. Other hosted sources (`rest`/`database`/`package`/`template`) mock OK | draft · **MVP scoped** |
 | Settings | [settings.md](./settings.md) | `GET/PATCH /settings/workspace`, operators list/invite/resend/disable/enable | draft |
 | Profile | [profile.md](./profile.md) | `GET /me` | draft |
 | Simulator | [simulator.md](./simulator.md) | Proposed: scenarios + runs (UI stub; `501` until built) | draft |
 
 **Status legend:** `draft` → proposed by frontend · `agreed` → backend accepted · `implemented` → live on API and wired in UI.
+
+**MCP MVP (see [mcp.md](./mcp.md) § MVP implementation scope):**
+
+- **Must work:** remote connect **with auth**, hosted **`openapi`** discover + provision, catalog list/detail, per-agent attach auth for remote.
+- **Mock OK:** hosted `rest` / `database` / `package` / `template`, static source-options.
 
 When adding a page: write `api/<page>.md` here first, then append paths/schemas to one-frontend `openapi/openapi.json` under a matching tag.
 
