@@ -150,6 +150,8 @@ Per-agent Overview tab. Reuse org Overview window query params (`range`, `from`/
 
 ## MCP attach / detach
 
+**MVP:** attach/detach + OAuth for **remote** catalog servers that set `requiresAuth: true` must work. See [mcp.md](./mcp.md) § MVP implementation scope. UI `AttachMcpAuthFlow` is still a staged mock today — backend should return a real `authorizationUrl`.
+
 ### `POST /agents/{agentId}/mcp/{serverId}`
 
 Attach catalog server. If `requiresAuth`, return `409` or `202` with `authRequired: true` and UI must call auth flow.
@@ -247,7 +249,7 @@ If `rules` omitted, evaluate persisted rules.
 
 ### `POST /agents/{agentId}/quotas`
 
-**Body:** `{ "name", "window", "cap", "burst" }` — creates enabled quota with `used: 0`.
+**Body:** `{ "name": "...", "window": "...", "cap": 0, "burst": 0 }` — creates enabled quota with `used: 0`.
 
 ### `PATCH /quotas/{quotaId}`
 
