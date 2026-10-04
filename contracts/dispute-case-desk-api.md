@@ -86,7 +86,7 @@ npm run seed && npm run start
 ```
 
 1. OpenAPI: `http://127.0.0.1:4102/openapi.json`
-2. Postman: zaimportuj `contracts/dispute-ops/dispute-case-desk.postman_collection.json` + `dispute-ops.postman_environment.json`
+2. Postman: zaimportuj jeden plik `contracts/dispute-ops/dispute-case-desk.postman_collection.json` (zmienne w kolekcji)
 3. `POST /demo/reset` → `GET /v1/cases/case_189_unrecognized`
 4. Modus: zarejestruj `http://127.0.0.1:4102/mcp`
 

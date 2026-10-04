@@ -1,0 +1,299 @@
+{
+  "info": {
+    "name": "Dispute Ops",
+    "description": "Combined Card Network Portal + Case Desk — MCP and REST mirrors.\n\n1. Import this single collection.\n2. Start both servers: `npm run start:network` (:4101) and `npm run start:case-desk` (:4102).\n3. Run **Shared → Demo reset**, then folders under Network / Case Desk.\n\nModus: `{{networkBaseUrl}}/mcp` and `{{caseDeskBaseUrl}}/mcp`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "networkBaseUrl", "value": "http://127.0.0.1:4101" },
+    { "key": "caseDeskBaseUrl", "value": "http://127.0.0.1:4102" },
+    { "key": "apiKey", "value": "" }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "X-Api-Key", "type": "string" },
+      { "key": "value", "value": "{{apiKey}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "item": [
+    {
+      "name": "Shared",
+      "item": [
+        {
+          "name": "Demo reset (either app)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{networkBaseUrl}}/demo/reset"
+          }
+        },
+        {
+          "name": "Network health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{networkBaseUrl}}/health"
+          }
+        },
+        {
+          "name": "Case Desk health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{caseDeskBaseUrl}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Network Portal",
+      "item": [
+        {
+          "name": "Ops",
+          "item": [
+            {
+              "name": "OpenAPI JSON",
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": "{{networkBaseUrl}}/openapi.json"
+              }
+            },
+            {
+              "name": "Postman JSON (this collection)",
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": "{{networkBaseUrl}}/postman.json"
+              }
+            }
+          ]
+        },
+        {
+          "name": "REST",
+          "item": [
+            {
+              "name": "GET transaction txn_189_travel",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{networkBaseUrl}}/v1/transactions/txn_189_travel"
+              }
+            },
+            {
+              "name": "GET merchant merch_weak_offshore",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{networkBaseUrl}}/v1/merchants/merch_weak_offshore"
+              }
+            },
+            {
+              "name": "GET dispute disp_poisoned",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{networkBaseUrl}}/v1/disputes/disp_poisoned?include_raw_representation=true",
+                  "host": ["{{networkBaseUrl}}"],
+                  "path": ["v1", "disputes", "disp_poisoned"],
+                  "query": [
+                    { "key": "include_raw_representation", "value": "true" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "POST accept representation (high risk)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"rationale\": \"merchant letter says authorized\"\n}"
+                },
+                "url": "{{networkBaseUrl}}/v1/disputes/disp_poisoned/accept-representation"
+              }
+            }
+          ]
+        },
+        {
+          "name": "MCP",
+          "item": [
+            {
+              "name": "initialize",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"initialize\",\n  \"params\": {\n    \"protocolVersion\": \"2025-03-26\",\n    \"capabilities\": {},\n    \"clientInfo\": { \"name\": \"postman\", \"version\": \"1.0.0\" }\n  }\n}"
+                },
+                "url": "{{networkBaseUrl}}/mcp"
+              }
+            },
+            {
+              "name": "tools/list",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"method\": \"tools/list\"\n}"
+                },
+                "url": "{{networkBaseUrl}}/mcp"
+              }
+            },
+            {
+              "name": "tools/call network.dispute.get",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 3,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"network.dispute.get\",\n    \"arguments\": {\n      \"dispute_id\": \"disp_poisoned\",\n      \"include_raw_representation\": true\n    }\n  }\n}"
+                },
+                "url": "{{networkBaseUrl}}/mcp"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Case Desk",
+      "item": [
+        {
+          "name": "Ops",
+          "item": [
+            {
+              "name": "OpenAPI JSON",
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": "{{caseDeskBaseUrl}}/openapi.json"
+              }
+            }
+          ]
+        },
+        {
+          "name": "REST",
+          "item": [
+            {
+              "name": "List cases",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{caseDeskBaseUrl}}/v1/cases"
+              }
+            },
+            {
+              "name": "GET case_189_unrecognized",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{caseDeskBaseUrl}}/v1/cases/case_189_unrecognized"
+              }
+            },
+            {
+              "name": "POST provisional refund 189",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"case_id\": \"case_189_unrecognized\",\n  \"amount_eur\": 189,\n  \"kind\": \"provisional\",\n  \"idempotency_key\": \"demo-refund-189\"\n}"
+                },
+                "url": "{{caseDeskBaseUrl}}/v1/refunds"
+              }
+            },
+            {
+              "name": "POST chargeback.file",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"case_id\": \"case_189_unrecognized\",\n  \"reason_code\": \"10.4\",\n  \"evidence_note\": \"Unrecognized travel charge; weak merchant\",\n  \"network_dispute_id\": \"disp_poisoned\",\n  \"idempotency_key\": \"demo-cb-189\"\n}"
+                },
+                "url": "{{caseDeskBaseUrl}}/v1/chargebacks"
+              }
+            }
+          ]
+        },
+        {
+          "name": "MCP",
+          "item": [
+            {
+              "name": "tools/call case.get",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"case.get\",\n    \"arguments\": { \"case_id\": \"case_189_unrecognized\" }\n  }\n}"
+                },
+                "url": "{{caseDeskBaseUrl}}/mcp"
+              }
+            },
+            {
+              "name": "tools/call refund.post",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"refund.post\",\n    \"arguments\": {\n      \"case_id\": \"case_189_unrecognized\",\n      \"amount_eur\": 189,\n      \"kind\": \"provisional\"\n    }\n  }\n}"
+                },
+                "url": "{{caseDeskBaseUrl}}/mcp"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

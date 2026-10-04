@@ -1,11 +1,13 @@
 {
   "info": {
     "name": "Dispute Case Desk",
-    "description": "Bank Case Desk — MCP + REST mirrors.\n\n1. Import with `dispute-ops.postman_environment.json`.\n2. Start: `npm run start:case-desk`.\n3. Prefer REST for smoke; use MCP folder for Modus-shaped calls.",
+    "description": "Bank Case Desk — MCP + REST mirrors (single-file collection; variables included).\n\n1. Import this file only.\n2. Start: `npm run start` (port 4102).\n3. Prefer REST for smoke; use MCP folder for Modus-shaped calls.\n4. Optionally set collection variable `apiKey` if MCP_API_KEY is enabled.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://127.0.0.1:4102" },
+    { "key": "caseDeskBaseUrl", "value": "http://127.0.0.1:4102" },
+    { "key": "networkBaseUrl", "value": "http://127.0.0.1:4101" },
     { "key": "apiKey", "value": "" }
   ],
   "auth": {
